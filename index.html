@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Выбор 3 карт Таро</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    html, body { height: 100%; width: 100%; margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; color: #fff; }
+    body {
+      background-image: url('background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      min-height: 100vh;
+      position: relative;
+    }
+    .overlay { display: flex; justify-content: center; align-items: center; min-height: 100vh; z-index:2; }
+    .content-container {
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); padding: 20px; border-radius: 15px; max-width: 800px; width: 100%;
+      margin-top: -60px; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .title { text-align: center; font-size: 1.8rem; margin-bottom: 10px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);}
+    .instruction { text-align: center; margin-bottom: 20px; font-size: 1rem; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);}
+    .card-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 750px; margin: 0 auto; }
+    .card {
+      width: 74px; height: 128px; background: url('back.png') no-repeat center center / cover, #1a1a1a;
+      border: 2px solid #fff; border-radius: 8px; cursor: pointer; position: relative;
+      transition: box-shadow .3s, background .3s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .card.selected {
+      background: #444;
+      border-color: #ff0;
+      box-shadow: 0 0 10px #ffeb3b66;
+      z-index: 2;
+    }
+    .card .front {
+      display: none;
+      width: 100%; height: 100%;
+      border-radius: 6px;
+      object-fit: cover;
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: 3;
+    }
+    .card.selected .front {
+      display: block;
+    }
+    .confirm-button {
+      width: 100%; padding: 12px; font-size: 16px; font-weight: bold; color: #fff;
+      background: linear-gradient(145deg,#4caf50,#45a049); border: none; border-radius: 8px; cursor: pointer;
+      transition: background .3s, transform .2s; margin-top: 20px;
+    }
+    .confirm-button:disabled { background: #666; cursor: not-allowed; }
+    .bag-container { position: fixed; bottom: 10px; left:0; right:0; display: flex; justify-content: center; z-index:1; pointer-events: none; }
+    .bag-image { width: 120px; height: auto; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="content-container">
+      <div class="title">Выбери 3 карты Таро</div>
+      <div class="instruction">Нажми на карты, чтобы выбрать 3, затем подтвердите выбор</div>
+      <div id="card-selection" class="card-container"></div>
+      <button id="confirm-selection" class="confirm-button" disabled>Подтвердить выбор</button>
+    </div>
+  </div>
+  <div class="bag-container"><img src="bag.png" alt="Мешок" class="bag-image"/></div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const TelegramWebApp = window.Telegram?.WebApp;
+      if (TelegramWebApp) { TelegramWebApp.ready(); TelegramWebApp.expand(); }
+      // Полный список ваших карт Таро (названия файлов!)
+      const tarotNames = [
+        "the_fool","the_magician","the_high_priestess","the_empress","the_emperor","the_hierophant","the_lovers","the_chariot",
+        "strength","the_hermit","wheel_of_fortune","justice","the_hanged_man","death","temperance","the_devil","the_tower",
+        "the_star","the_moon","the_sun","judgement","the_world",
+        "ace_of_wands","two_of_wands","three_of_wands","four_of_wands","five_of_wands","six_of_wands","seven_of_wands",
+        "eight_of_wands","nine_of_wands","ten_of_wands","page_of_wands","knight_of_wands","queen_of_wands","king_of_wands",
+        "ace_of_cups","two_of_cups","three_of_cups","four_of_cups","five_of_cups","six_of_cups","seven_of_cups",
+        "eight_of_cups","nine_of_cups","ten_of_cups","page_of_cups","knight_of_cups","queen_of_cups","king_of_cups",
+        "ace_of_swords","two_of_swords","three_of_swords","four_of_swords","five_of_swords","six_of_swords","seven_of_swords",
+        "eight_of_swords","nine_of_swords","ten_of_swords","page_of_swords","knight_of_swords","queen_of_swords","king_of_swords",
+        "ace_of_pentacles","two_of_pentacles","three_of_pentacles","four_of_pentacles","five_of_pentacles","six_of_pentacles",
+        "seven_of_pentacles","eight_of_pentacles","nine_of_pentacles","ten_of_pentacles","page_of_pentacles","knight_of_pentacles",
+        "queen_of_pentacles","king_of_pentacles"
+      ];
+      const cardContainer = document.getElementById('card-selection');
+      const confirmButton = document.getElementById('confirm-selection');
+      let selectedCards = [];
+
+      tarotNames.forEach(cardName => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.name = cardName;
+
+        const front = document.createElement('img');
+        front.classList.add('front');
+        front.src = cardName + '.png';
+        front.alt = cardName;
+        front.onerror = function() { front.style.display='none'; };
+
+        card.appendChild(front);
+        cardContainer.appendChild(card);
+
+        card.addEventListener('click', function () {
+          if (card.classList.contains('selected')) {
+            card.classList.remove('selected');
+            selectedCards = selectedCards.filter(n => n !== cardName);
+          } else if (selectedCards.length < 3) {
+            card.classList.add('selected');
+            selectedCards.push(cardName);
+          }
+          updateUI();
+        });
+      });
+
+      function updateUI() {
+        confirmButton.disabled = selectedCards.length !== 3;
+        confirmButton.textContent = selectedCards.length === 3 ? "Подтвердить" : "Выбери 3 карты";
+        document.querySelectorAll('.card').forEach(card=>
+          card.querySelector('.front').style.display = card.classList.contains('selected') ? 'block' : 'none'
+        );
+      }
+
+      confirmButton.addEventListener('click', function () {
+        if (selectedCards.length === 3) {
+          const data = JSON.stringify({ cards: selectedCards });
+          try {
+            if (TelegramWebApp) {
+              TelegramWebApp.sendData(data);
+              TelegramWebApp.close();
+            } else {
+              alert(selectedCards.join(', '));
+            }
+          } catch (error) {
+            alert('Ошибка отправки');
+          }
+        } else {
+          alert('Выбери 3 карты');
+        }
+      });
+      updateUI();
+    });
+  </script>
+</body>
+</html>
