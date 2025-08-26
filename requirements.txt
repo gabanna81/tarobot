@@ -1,5 +1,6 @@
-python-telegram-bot==20.7
+python-telegram-bot==21.6
 openai>=1.0.0
 httpx
 python-dotenv
 yookassa
+
