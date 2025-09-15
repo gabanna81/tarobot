@@ -28,6 +28,8 @@ except ImportError:
 
 # ← вот СЮДА, после try/except, БЕЗ ОТСТУПА:
 BOT_USERNAME = os.getenv("BOT_USERNAME", "nonstoptarot_bot").lstrip("@")
+DB_PATH = os.getenv("DB_PATH", "botdata.db")  # на Render поставь ENV DB_PATH=/data/botdata.db
+
 
 mask = os.getenv("YOOKASSA_SECRET_KEY") or ""
 
@@ -207,12 +209,13 @@ def maintenance_block(user_id: int) -> bool:
 
 
 def get_db_connection():
-    conn = sqlite3.connect('botdata.db', timeout=15, isolation_level=None)
+    conn = sqlite3.connect(DB_PATH, timeout=15, isolation_level=None)
     # Включаем WAL и таймаут на уровне SQLite
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=15000;")
     conn.row_factory = sqlite3.Row
     return conn
+
 
 
 def get_user(user_id):
@@ -1814,4 +1817,5 @@ def main():
     
     
 if __name__ == '__main__':
+
     main()
